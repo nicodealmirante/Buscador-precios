@@ -4,7 +4,7 @@ import os
 
 # Lista de productos que quieres agregar inicialmente
 # Puedes poner nombres ('Leche') o EANs ('7790123456789')
-PRODUCTOS_A_CARGAR = ["Aceite De Girasol 1.5 L Natura",
+LISTA_PRODUCTOS = ["Aceite De Girasol 1.5 L Natura",
 "Aceite De Girasol Cañuelas 900 Ml",
 "Aceite Girasol Legítimo 900 Ml",
 "Aceitunas Castell Descarozadas 150 Gr",
