@@ -221,7 +221,3 @@ def ejecutar_carga():
 if __name__ == "__main__":
     ejecutar_carga()
 
-if __name__ == "__main__":
-    # Asegúrate de tener la variable DATABASE_URL configurada en tu terminal
-    # o corre esto dentro de Railway
-    cargar_lista()
