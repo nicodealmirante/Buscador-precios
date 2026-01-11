@@ -160,43 +160,66 @@ PRODUCTOS_A_CARGAR = ["Aceite De Girasol 1.5 L Natura",
 "Shampoo Pantene Liso Extremo"]
 
 def conectar_db():
-    DATABASE_URL = os.getenv('DATABASE_URL')
-    return psycopg2.connect(DATABASE_URL, sslmode='require')
+    # En Railway esto lee la variable automáticamente
+    url = os.getenv('DATABASE_URL')
+    return psycopg2.connect(url, sslmode='require')
 
-def cargar_lista():
+def ejecutar_carga():
     conn = conectar_db()
     cur = conn.cursor()
-    headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://www.preciosclaros.gob.ar/"}
     
-    print(f"Iniciando carga de {len(PRODUCTOS_A_CARGAR)} productos...")
+    # Headers más completos para evitar bloqueos
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://www.preciosclaros.gob.ar/",
+        "Accept": "application/json, text/plain, */*",
+        "x-requested-with": "XMLHttpRequest"
+    }
 
-    for item in PRODUCTOS_A_CARGAR:
+    for item in LISTA_PRODUCTOS:
+        print(f"Buscando: {item}...")
+        # Usamos coordenadas del centro de CABA para asegurar resultados
         url = "https://d3e6htiiul5ek9.cloudfront.net/prod/productos"
-        params = {"string": item, "lat": -34.60, "lng": -58.38, "limite": 1}
-        
+        params = {
+            "string": item,
+            "lat": -34.6037,
+            "lng": -58.3816,
+            "limite": 1
+        }
+
         try:
-            r = requests.get(url, params=params, headers=headers)
-            if r.status_code == 200:
-                data = r.json().get('productos', [])
-                if data:
-                    p = data[0]
-                    img_url = f"https://imagenes.preciosclaros.gob.ar/productos/{p['id']}.jpg"
-                    
-                    cur.execute("""
-                        INSERT INTO mis_productos (producto, marca, ean_codigo, categoria, imagen, precio, fuente, fecha)
-                        VALUES (%s, %s, %s, %s, %s, %s, 'Precios Claros', CURRENT_TIMESTAMP)
-                        ON CONFLICT (ean_codigo) DO UPDATE SET precio = EXCLUDED.precio, fecha = CURRENT_TIMESTAMP;
-                    """, (p['nombre'], p['marca'], p['id'], 'General', img_url, p['precioMax']))
-                    print(f"✅ Agregado: {p['nombre']}")
-                else:
-                    print(f"❌ No se encontró: {item}")
+            r = requests.get(url, params=params, headers=headers, timeout=10)
+            data = r.json()
+            productos = data.get('productos', [])
+
+            if productos:
+                p = productos[0]
+                ean = p['id']
+                nombre = p['nombre']
+                marca = p['marca']
+                precio = p['precioMax']
+                img = f"https://imagenes.preciosclaros.gob.ar/productos/{ean}.jpg"
+                
+                cur.execute("""
+                    INSERT INTO mis_productos (ean_codigo, producto, marca, categoria, imagen, precio, fuente, fecha)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'Precios Claros', CURRENT_TIMESTAMP)
+                    ON CONFLICT (ean_codigo) DO UPDATE SET 
+                        precio = EXCLUDED.precio, 
+                        fecha = CURRENT_TIMESTAMP;
+                """, (ean, nombre, marca, 'General', img, precio))
+                print(f"✅ Guardado: {nombre} - ${precio}")
+            else:
+                print(f"❌ No se encontró nada para: {item}")
+        
         except Exception as e:
-            print(f"⚠️ Error con {item}: {e}")
+            print(f"Error con {item}: {e}")
 
     conn.commit()
     cur.close()
     conn.close()
-    print("--- Proceso terminado ---")
+
+if __name__ == "__main__":
+    ejecutar_carga()
 
 if __name__ == "__main__":
     # Asegúrate de tener la variable DATABASE_URL configurada en tu terminal
